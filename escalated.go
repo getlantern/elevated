@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log/syslog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,7 +26,6 @@ import (
 	"time"
 
 	"bitbucket.org/kardianos/osext"
-	"github.com/getlantern/escalate"
 	"github.com/getlantern/golog"
 	"github.com/getlantern/service"
 	"github.com/getlantern/waitforserver"
@@ -93,6 +91,10 @@ func Run(exportPort int, main func() error) error {
 	svcCfg = service.Config{
 		Name:      name,
 		Arguments: allArgs,
+		Start: func() error {
+			go runEscalated()
+			return nil
+		},
 	}
 
 	svc, err = service.New(svcCfg)
@@ -101,7 +103,7 @@ func Run(exportPort int, main func() error) error {
 	}
 
 	if hasFlag(flagEscalate) {
-		return runEscalated()
+		return svc.Run()
 	} else if hasFlag(flagInstall) {
 		return runInstall()
 	} else {
@@ -112,17 +114,15 @@ func Run(exportPort int, main func() error) error {
 func runMain(main func() error) error {
 	log.Debug("Running main")
 
-	needsUpdate, err := svc.InstallOrUpdateRequired()
-	if err != nil {
-		return fmt.Errorf("Unable to determine if install or update is required: %v", err)
-	}
+	err := waitforserver.WaitForServer("tcp", addr, 100*time.Millisecond)
+	needsUpdate := err != nil
 
 	if needsUpdate {
 		log.Debug("Installing as a service")
 		prompt := fmt.Sprintf("%v needs to install itself as a service", programFile)
-		out, err := escalate.Prompt(prompt, program, flagInstall).CombinedOutput()
+		out, err := escalatedCommand(prompt, program, flagInstall).CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("Unable to install service: %v (%v)", out, err)
+			return fmt.Errorf("Unable to install service: %v (%v)", string(out), err)
 		}
 		log.Debug("Installed service")
 	}
@@ -155,21 +155,10 @@ func runInstall() error {
 }
 
 func runEscalated() error {
-	errorOut, err := syslog.New(syslog.LOG_ERR, name)
+	err := directLogsToSyslog()
 	if err != nil {
-		return fmt.Errorf("Unable to get syslog for errors: %v", err)
+		return err
 	}
-	defer errorOut.Close()
-
-	debugOut, err := syslog.New(syslog.LOG_INFO, name)
-	if err != nil {
-		return fmt.Errorf("Unable to get syslog for debug: %v", err)
-	}
-	defer debugOut.Close()
-
-	debugOut.Write([]byte("Updating logs"))
-	golog.SetOutputs(errorOut, debugOut)
-	debugOut.Write([]byte("Updated logs"))
 
 	log.Debugf("Running as escalated service at %v", addr)
 	s := &http.Server{
