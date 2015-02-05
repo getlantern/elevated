@@ -1,4 +1,4 @@
-// demo provides an example of using escalated. It includes one privileged
+// demo provides an example of using elevated. It includes one privileged
 // function that sets the mtu on en0 to a random value between 1300 and 1500
 // using the networksetup utility. This is something that requires root
 // permissions.
@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/getlantern/escalated"
+	"github.com/getlantern/elevated"
 	"github.com/getlantern/golog"
 )
 
@@ -22,8 +22,8 @@ var (
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	escalated.Export(setMtu)
-	err := escalated.Run(9789, doMain)
+	elevated.Export(setMtu)
+	err := elevated.Run(9789, doMain)
 	if err != nil {
 		panic(err)
 	}
@@ -40,11 +40,11 @@ func doMain() error {
 	}
 
 	newMtu := strconv.Itoa(1300 + rand.Intn(200))
-	err = escalated.Call(setMtu, "en0", newMtu)
+	err = elevated.Call(setMtu, "en0", newMtu)
 	if err == nil {
-		log.Debug("Successfully called escalated function")
+		log.Debug("Successfully called elevated function")
 	} else {
-		log.Debugf("Unexpected error calling escalated function: %v", err)
+		log.Debugf("Unexpected error calling elevated function: %v", err)
 	}
 
 	if mtuMatches("en0", newMtu) {
@@ -53,7 +53,7 @@ func doMain() error {
 		log.Debug("mtu wasn't updated!")
 	}
 
-	err = escalated.Call(setMtu, "en0", "1500")
+	err = elevated.Call(setMtu, "en0", "1500")
 	if err == nil {
 		log.Debug("mtu was successfully set back to 1500")
 	} else {

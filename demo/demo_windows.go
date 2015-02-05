@@ -1,4 +1,4 @@
-// demo provides an example of using escalated. It includes one privileged
+// demo provides an example of using elevated. It includes one privileged
 // function that sets the mtu on en0 to a random value between 1300 and 1500
 // using the networksetup utility. This is something that requires root
 // permissions.
@@ -8,7 +8,7 @@ import (
 	"os/exec"
 
 	"bitbucket.org/kardianos/osext"
-	"github.com/getlantern/escalated"
+	"github.com/getlantern/elevated"
 	"github.com/getlantern/golog"
 )
 
@@ -17,8 +17,8 @@ var (
 )
 
 func main() {
-	escalated.Export(firewallAdd)
-	err := escalated.Run(9789, doMain)
+	elevated.Export(firewallAdd)
+	err := elevated.Run(9789, doMain)
 	if err != nil {
 		panic(err)
 	}
@@ -34,11 +34,11 @@ func doMain() error {
 		log.Debug("First call didn't get an error, though it should have!")
 	}
 
-	err = escalated.Call(firewallAdd, "demo_good")
+	err = elevated.Call(firewallAdd, "demo_good")
 	if err == nil {
-		log.Debug("Successfully called escalated function")
+		log.Debug("Successfully called elevated function")
 	} else {
-		log.Debugf("Unexpected error calling escalated function: %v", err)
+		log.Debugf("Unexpected error calling elevated function: %v", err)
 	}
 
 	return nil
