@@ -5,6 +5,7 @@ package elevated
 import (
 	"fmt"
 	"log/syslog"
+	"os"
 	"os/exec"
 
 	"github.com/getlantern/elevate"
@@ -31,6 +32,26 @@ func directLogsToSyslog() error {
 	debugOut.Write([]byte("Updating logs"))
 	golog.SetOutputs(errorOut, debugOut)
 	debugOut.Write([]byte("Updated logs"))
+
+	return nil
+}
+
+func verifyProgramSecurable() error {
+	return nil
+}
+
+func ensureProgramSecure() error {
+	log.Debugf("Changing ownership of %v to root", program)
+	err := os.Chown(program, 0, 0)
+	if err != nil {
+		return fmt.Errorf("Unable to chown %v to root: %v", program, err)
+	}
+
+	log.Debugf("Chmodding %v to 0755", program)
+	err = os.Chmod(program, 0755)
+	if err != nil {
+		return fmt.Errorf("Unable to chmod %v to 0755: %v", program, err)
+	}
 
 	return nil
 }

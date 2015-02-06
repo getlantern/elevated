@@ -114,11 +114,17 @@ func Run(exportPort int, main func() error) error {
 func runMain(main func() error) error {
 	log.Debug("Running main")
 
-	err := waitforserver.WaitForServer("tcp", addr, 100*time.Millisecond)
+	err := verifyProgramSecurable()
+	if err != nil {
+		return fmt.Errorf("Program at %v cannot be secured for use as a service: %v", program, err)
+	}
+
+	err = waitforserver.WaitForServer("tcp", addr, 100*time.Millisecond)
 	needsUpdate := err != nil
 
 	if needsUpdate {
 		log.Debug("Installing as a service")
+
 		prompt := fmt.Sprintf("%v needs to install itself as a service", programFile)
 		out, err := elevatedCommand(prompt, program, flagInstall).CombinedOutput()
 		if err != nil {
@@ -137,6 +143,11 @@ func runMain(main func() error) error {
 
 func runInstall() error {
 	log.Debug("Installing service")
+
+	err := ensureProgramSecure()
+	if err != nil {
+		return fmt.Errorf("Program at %v not secure, can't install as service: %v", program, err)
+	}
 
 	updated, err := svc.InstallOrUpdate()
 	if err != nil {
