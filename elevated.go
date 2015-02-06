@@ -9,6 +9,11 @@
 // Since any process on the local machine can call this REST API, it's best not
 // to make the elevated functions too open-ended.
 //
+// Prior to installing it as a service, the permissions and ownership of the
+// current program are changed so that one needs administrative privileges to
+// modify the file. This prevents attackers from gaining elevated privileges by
+// substituting their own program for the service.
+//
 // TODO - on OS X, use smjobbless with XPC for even better security. See
 // http://stackoverflow.com/questions/9134841/writing-a-privileged-helper-tool-with-smjobbless
 // for discussion.
@@ -92,7 +97,7 @@ func Run(exportPort int, main func() error) error {
 		Name:      name,
 		Arguments: allArgs,
 		Start: func() error {
-			go runelevated()
+			go runElevated()
 			return nil
 		},
 	}
@@ -114,12 +119,7 @@ func Run(exportPort int, main func() error) error {
 func runMain(main func() error) error {
 	log.Debug("Running main")
 
-	err := verifyProgramSecurable()
-	if err != nil {
-		return fmt.Errorf("Program at %v cannot be secured for use as a service: %v", program, err)
-	}
-
-	err = waitforserver.WaitForServer("tcp", addr, 100*time.Millisecond)
+	err := waitforserver.WaitForServer("tcp", addr, 100*time.Millisecond)
 	needsUpdate := err != nil
 
 	if needsUpdate {
@@ -165,7 +165,7 @@ func runInstall() error {
 	return svc.Start()
 }
 
-func runelevated() error {
+func runElevated() error {
 	err := directLogsToSyslog()
 	if err != nil {
 		return err
@@ -174,7 +174,7 @@ func runelevated() error {
 	log.Debugf("Running as elevated service at %v", addr)
 	s := &http.Server{
 		Addr:    addr,
-		Handler: http.HandlerFunc(handleelevatedCall),
+		Handler: http.HandlerFunc(handleElevatedCall),
 	}
 	return s.ListenAndServe()
 }
@@ -188,6 +188,7 @@ func hasFlag(flag string) bool {
 	return false
 }
 
+// Call calls the given function with the given parms with elevated privileges.
 func Call(fn func(parms ...string) error, parms ...string) error {
 	for i, efn := range exportedFns {
 		if fmt.Sprint(efn) == fmt.Sprint(fn) {
@@ -215,7 +216,7 @@ func Call(fn func(parms ...string) error, parms ...string) error {
 	return fmt.Errorf("Called function is not exported")
 }
 
-func handleelevatedCall(resp http.ResponseWriter, req *http.Request) {
+func handleElevatedCall(resp http.ResponseWriter, req *http.Request) {
 	data, err := ioutil.ReadAll(req.Body)
 	req.Body.Close()
 	if err != nil {

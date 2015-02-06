@@ -36,10 +36,6 @@ func directLogsToSyslog() error {
 	return nil
 }
 
-func verifyProgramSecurable() error {
-	return nil
-}
-
 func ensureProgramSecure() error {
 	log.Debugf("Changing ownership of %v to root", program)
 	err := os.Chown(program, 0, 0)
